@@ -1,5 +1,3 @@
----
-
 # credit-bureau-parser
 
 Brand new parser. 
@@ -7,8 +5,6 @@ Currently compatible with Credit Bureau:
 * **Pefindo** 
   * XML versions **5.82** and **5.31**.
   * JSON version **1.0.3_12**.
-
----
 
 ## Requirements
 
