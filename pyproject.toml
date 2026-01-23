@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "credit-bureau-parser"
+version = "0.1.1"
+description = "Credit bureau XML/JSON parser Pipeline"
+readme = "README.md"
+requires-python = ">=3.11"
+
+dependencies = [
+    "xmltodict>=0.14.2",
+    "numpy>=1.26.4",
+    "pandas>=2.2.3",
+    "filelock>=3.18.0",
+    "tqdm>=4.67.1",
+    "pyarrow>=10.0.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+credit-bureau-parser = "credit_bureau_parser.main:main"
