@@ -237,7 +237,6 @@ class BaseProcessor:
                             print(f"⚠️ Exception: {e}")
 
             # ===== Parquet Output (Partitioned) =====
-            print(output_format)
             if output_format == "parquet":
                 output_csv_path = os.path.join(output_folder, f"{self.table_name}.csv")
                 output_parquet_path = os.path.join(output_folder, f"{self.table_name}.parquet")

@@ -79,7 +79,7 @@ def get_value(value, field, field_int):
     except Exception as e:
         # print('-------')
         # print(field)
-        # print(f'error in get value : {e}')
+        # print(f'ERROR in get value : {e}')
         pass
     return tmp
 
