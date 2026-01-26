@@ -375,6 +375,7 @@ class PefindoFeatures():
                 ]
 
     PARAMETER = ["tgl_permintaan",
+                 "id_tujuan_permintaan"
                  ]
 
     SECURITIES = ["NumberOfActiveSecurities",
