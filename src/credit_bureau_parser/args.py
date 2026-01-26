@@ -43,4 +43,7 @@ def parse_args():
         help="Processor set name (from config)"
     )
 
-    return parser.parse_args()
+    # 🔑 AIRFLOW-SAFE
+    args, _ = parser.parse_known_args()
+    
+    return args
