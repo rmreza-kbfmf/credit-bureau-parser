@@ -43,7 +43,15 @@ def parse_args():
         help="Processor set name (from config)"
     )
 
+    # 🔥 multiprocessing toggle
+    parser.add_argument(
+        "--use-multiprocessing",
+        action="store_true",
+        default=False,
+        help="Enable multiprocessing (default: disabled; recommended OFF for Airflow)",
+    )
+
     # 🔑 AIRFLOW-SAFE
     args, _ = parser.parse_known_args()
-    
+
     return args

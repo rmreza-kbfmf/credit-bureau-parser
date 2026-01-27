@@ -13,6 +13,7 @@ def run(
     processor_set=None,
     bureau_name=None,
     root_base=None,
+    use_multiprocessing=None
 ):
     """
     Unified entry point for:
@@ -27,7 +28,13 @@ def run(
     processor_set = processor_set or args.processor_set
     bureau_name = bureau_name or args.bureau_name
     root_base = root_base or args.root_base    
-    
+
+    # 🔥 multiprocessing resolution (explicit > CLI > default)
+    use_multiprocessing = (
+        use_multiprocessing
+        if use_multiprocessing is not None
+        else args.use_multiprocessing
+    )
     log_queue = Queue()
     log_filename = datetime.datetime.now().strftime("logs/processor_log_%Y-%m-%d.log")
     listener = setup_logger_listener(log_queue, log_filename)
@@ -38,7 +45,8 @@ def run(
             data_type=data_type,
             output_format=output_format,
             bureau_name=bureau_name,
-            processor_set=processor_set
+            processor_set=processor_set,
+            use_multiprocessing=use_multiprocessing
         )
 
         pipeline.run()
