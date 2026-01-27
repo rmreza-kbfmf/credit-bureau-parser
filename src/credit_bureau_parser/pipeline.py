@@ -169,10 +169,7 @@ class FileProcessingPipeline:
         success, failed = 0, 0
         failed_files = []
 
-        for filename in tqdm(
-            self.file_list,
-            desc=f"Processing {self.data_type.upper()} files",
-        ):
+        for filename in self.file_list:
             try:
                 result = worker(str(filename))
                 if result["status"] == "success":

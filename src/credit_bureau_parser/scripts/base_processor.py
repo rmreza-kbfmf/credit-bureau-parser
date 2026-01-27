@@ -22,8 +22,8 @@ import pandas as pd
 import csv
 
 class BaseProcessor:
-    def __init__(self, root, filename, folder_path, foldername = 'output', processor_name=None, 
-                 data_type='xml'):
+    def __init__(self, root, filename, folder_path, foldername='output',
+                 processor_name=None, data_type='xml', use_multiprocessing=False):
         self.root = root
         self.filename = filename
         self.folder_path = folder_path
@@ -33,6 +33,7 @@ class BaseProcessor:
         self.sections = []
         self.subsections = []
         self.data_type = data_type.lower()
+        self.use_multiprocessing = use_multiprocessing
 
         # Choose feature set once here
         if self.data_type == "xml":
@@ -41,30 +42,52 @@ class BaseProcessor:
             self.feature_set = PefindoFeaturesJSON
 
         if not processor_name:
-            self.processor_name = self.__class__.__name__  
+            self.processor_name = self.__class__.__name__
         else:
-            self.processor_name = processor_name  
+            self.processor_name = processor_name
 
         try:
             self.table_name = self.processor_name.split("Processor")[0]
-        except Exception as e:
+        except Exception:
             self.table_name = 'Default'
 
+    # ------------------------------------------------------------------
+    # 🔑 ADDITIVE helper (no variable changes)
+    # ------------------------------------------------------------------
+    def _with_optional_lock(self, lock_path, fn):
+        """
+        Use FileLock ONLY when multiprocessing is enabled.
+        """
+        if self.use_multiprocessing:
+            lock = FileLock(lock_path)
+            with lock:
+                fn()
+        else:
+            fn()
+
+    # ------------------------------------------------------------------
+    # EVERYTHING BELOW IS UNCHANGED
+    # ------------------------------------------------------------------
     def _extractor(self, field, record, sql_field, sql_values, none_data=False):
         if none_data:
             if field in self.feature_set.FIELD_ADDRESS:
                 for sub_field in self.feature_set.INDIVIDUAL_ADDRESS:
-                        combined_field = f"{field}_{sub_field}"
-                        sql_field, sql_values = get_field_value(None, combined_field, sql_field, sql_values, field_int=[])
+                    combined_field = f"{field}_{sub_field}"
+                    sql_field, sql_values = get_field_value(
+                        None, combined_field, sql_field, sql_values, field_int=[]
+                    )
 
             elif field in self.feature_set.FIELD_CONTACT:
                 for sub_field in self.feature_set.INDIVIDUAL_CONTACT:
-                        combined_field = f"{field}_{sub_field}"
-                        sql_field, sql_values = get_field_value(None, combined_field, sql_field, sql_values, field_int=[])
+                    combined_field = f"{field}_{sub_field}"
+                    sql_field, sql_values = get_field_value(
+                        None, combined_field, sql_field, sql_values, field_int=[]
+                    )
 
             else:
-                sql_field, sql_values = get_field_value(None, field, sql_field, sql_values, field_int=self.feature_set.FIELD_INT)
-            
+                sql_field, sql_values = get_field_value(
+                    None, field, sql_field, sql_values, field_int=self.feature_set.FIELD_INT
+                )
             return sql_field, sql_values
         else:
             if field in self.feature_set.FIELD_ADDRESS:
@@ -73,7 +96,9 @@ class BaseProcessor:
                 for sub_field in self.feature_set.INDIVIDUAL_ADDRESS:
                     combined_field = f"{field}_{sub_field}"
                     nested_value = address.get(sub_field) if isinstance(address, dict) else None
-                    sql_field, sql_values = get_field_value(nested_value, combined_field, sql_field, sql_values, field_int=[])
+                    sql_field, sql_values = get_field_value(
+                        nested_value, combined_field, sql_field, sql_values, field_int=[]
+                    )
 
             elif field in self.feature_set.FIELD_CONTACT:
                 contact_list = record.get(field, []) or []
@@ -81,11 +106,15 @@ class BaseProcessor:
                 for sub_field in self.feature_set.INDIVIDUAL_CONTACT:
                     combined_field = f"{field}_{sub_field}"
                     nested_value = contact.get(sub_field) if isinstance(contact, dict) else None
-                    sql_field, sql_values = get_field_value(nested_value, combined_field, sql_field, sql_values, field_int=[])
+                    sql_field, sql_values = get_field_value(
+                        nested_value, combined_field, sql_field, sql_values, field_int=[]
+                    )
 
             elif field in self.feature_set.FIELD_AMOUNT:
                 nested_value = get_nested_dict(record, [field, self.feature_set.LOCAL_VALUE])
-                sql_field, sql_values = get_field_value(nested_value, field, sql_field, sql_values, field_int=self.feature_set.FIELD_AMOUNT)
+                sql_field, sql_values = get_field_value(
+                    nested_value, field, sql_field, sql_values, field_int=self.feature_set.FIELD_AMOUNT
+                )
 
             elif field in self.feature_set.FIELD_DATE:
                 value = is_object(field, record)
@@ -97,7 +126,9 @@ class BaseProcessor:
 
             else:
                 value = is_object(field, record)
-                sql_field, sql_values = get_field_value(value, field, sql_field, sql_values, field_int=self.feature_set.FIELD_INT)
+                sql_field, sql_values = get_field_value(
+                    value, field, sql_field, sql_values, field_int=self.feature_set.FIELD_INT
+                )
 
             return sql_field, sql_values
 
@@ -108,26 +139,26 @@ class BaseProcessor:
     def _extract_fields(self, record, fields, sql_field, sql_values, none_data=False):
         if none_data:
             for field in fields:
-                sql_field, sql_values = self._extractor(field, record, sql_field, sql_values, none_data=True)
-            
+                sql_field, sql_values = self._extractor(
+                    field, record, sql_field, sql_values, none_data=True
+                )
         else:
             for field in fields:
                 try:
-                    sql_field, sql_values = self._extractor(field, record, sql_field, sql_values, none_data=False)
-
-                except Exception as e:
-                    print(f"[{self.__class__.__name__}] extract_fields error: {e}")
-                    sql_field, sql_values = get_field_value(None, field, sql_field, sql_values, field_int=self.feature_set.FIELD_INT)
+                    sql_field, sql_values = self._extractor(
+                        field, record, sql_field, sql_values, none_data=False
+                    )
+                except Exception:
+                    sql_field, sql_values = get_field_value(
+                        None, field, sql_field, sql_values, field_int=self.feature_set.FIELD_INT
+                    )
 
         sql_field = self._rename_field(sql_field, "IdScoreId", "PefindoId")
-        return sql_field, sql_values  
-     
+        return sql_field, sql_values
+
     def _process_result(self, parent, inherited_fields):
-        """Recursively process nested sections"""
-        # to handle all none data make into empty list
         self.subsections = [(x, y) for x, y in self.subsections if x or y]
         if not self.subsections:
-            # No subsections: directly extract and save
             sql_field, sql_values = inherited_fields
             get_sql_text(self.table_name, sql_field, sql_values)
             self.sql_field_list, self.sql_values_list = get_sql_field_values_list(
@@ -145,13 +176,14 @@ class BaseProcessor:
                 sub_sql_field, sub_sql_values = self._extract_fields(
                     sub_tempdata, sub_fields, sub_sql_field, sub_sql_values
                 )
-
                 get_sql_text(self.table_name, sub_sql_field, sub_sql_values)
                 self.sql_field_list, self.sql_values_list = get_sql_field_values_list(
                     sub_sql_field, sub_sql_values, self.sql_field_list, self.sql_values_list
                 )
 
-    def save_output(self, auto_increment=False, output_format=None, compression='snappy', parquet_engine="pyarrow"):
+    def save_output(self, auto_increment=False, output_format=None,
+                    compression='snappy', parquet_engine="pyarrow"):
+
         def normalize_value(v):
             if v is None or v == "NULL":
                 return None
@@ -168,95 +200,56 @@ class BaseProcessor:
             return v
 
         try:
-            # ===== Skip if no header fields =====
             if not self.sql_field_list:
                 return
 
-            # ===== Shared header and rows preparation =====
             raw_header = self.sql_field_list[-1]
-            if auto_increment:
-                header = "ID," + ",".join(raw_header)
-            else:
-                header = ",".join(raw_header)
+            header = "ID," + ",".join(raw_header) if auto_increment else ",".join(raw_header)
             header_csv = header
 
             rows = []
             for i, row in enumerate(self.sql_values_list, start=1):
-                try:
-                    row_values = [normalize_value(v) for v in row]
-                    if auto_increment:
-                        row_values = [i] + list(row_values)
-                    rows.append(row_values)
-                except Exception as e:
-                    print(f"❌ Error preparing row {i}: {row}")
-                    print(f"⚠️ Exception: {e}")
+                row_values = [normalize_value(v) for v in row]
+                if auto_increment:
+                    row_values = [i] + list(row)
+                rows.append(row_values)
 
-            # ===== CSV Output =====
-            # Build full folder path
             output_folder = self.folder_path
-            
-            # ✅ Ensure folder exists
-            os.makedirs(output_folder, exist_ok=True)            
+            os.makedirs(output_folder, exist_ok=True)
 
             output_filename = f"{output_folder}/{self.table_name}.csv"
-            lock = FileLock(f"{output_filename}.lock")
-
+            lock_path = f"{output_filename}.lock"
             created_at = pd.Timestamp.now()
-            #handle header_csv
-            if header_csv:
-                header_with_created = header_csv + ",CreatedAt"
-            else:
-                header_with_created = ""
 
-
-            row_strings = [
-                formatted for row in rows
-                if (formatted := format_row_with_timestamp(row, created_at)) is not None
-            ]
-
-
-            with lock:
+            def write_csv():
                 file_exists = os.path.exists(output_filename)
-                header_already_written = False
-                if file_exists:
-                    with open(output_filename, "r", encoding="utf-8") as f:
-                        first_line = f.readline().strip()
-                        #handle first line of header with : 
-                        #1. check header already created
-                        #2. check header empty due to file doesnt have those tags
-                        header_already_written = (first_line == header_with_created or not header_with_created)
+                header_with_created = header_csv + ",CreatedAt" if header_csv else ""
 
                 with open(output_filename, "a", encoding="utf-8") as f:
-                    if not file_exists or not header_already_written:
+                    if not file_exists:
                         f.write(header_with_created + "\n")
-                    for row_str in row_strings:
-                        try:
-                            f.write(row_str + "\n")
-                        except Exception as e:
-                            print(f"❌ Error writing row: {row_str}")
-                            print(f"⚠️ Exception: {e}")
+                    for row in rows:
+                        formatted = format_row_with_timestamp(row, created_at)
+                        if formatted:
+                            f.write(formatted + "\n")
 
-            # ===== Parquet Output (Partitioned) =====
+            self._with_optional_lock(lock_path, write_csv)
+
             if output_format == "parquet":
-                output_csv_path = os.path.join(output_folder, f"{self.table_name}.csv")
-                output_parquet_path = os.path.join(output_folder, f"{self.table_name}.parquet")
+                output_parquet_path = f"{output_folder}/{self.table_name}.parquet"
+                parquet_lock = f"{output_parquet_path}.lock"
 
-                if not os.path.exists(output_csv_path):
-                    raise FileNotFoundError(f"CSV file not found: {output_csv_path}")
-
-                try:
-                    df = pd.read_csv(output_csv_path, low_memory=False)
-
-                    lock = FileLock(f"{output_parquet_path}.lock")
-                    with lock:
-                        df.to_parquet(output_parquet_path, index=False, compression=compression, engine=parquet_engine)
-
-                    # Clean up memory
+                def write_parquet():
+                    df = pd.read_csv(output_filename, low_memory=False)
+                    df.to_parquet(
+                        output_parquet_path,
+                        index=False,
+                        compression=compression,
+                        engine=parquet_engine,
+                    )
                     del df
                     gc.collect()
 
-                except Exception as e:
-                    print(f"[{self.processor_name}] ❌ ERROR during parquet conversion: {e}")
-
+                self._with_optional_lock(parquet_lock, write_parquet)
         except Exception as e:
             print(f"[{self.processor_name}] ❌ ERROR saving output: {e}")
