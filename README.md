@@ -1,6 +1,7 @@
 # credit-bureau-parser
 
-Brand new parser. 
+This package is about credit bureau parser, which translate document data into tabular data
+
 Currently compatible with Credit Bureau:
 * **Pefindo** 
   * XML versions **5.82** and **5.31**.
@@ -10,17 +11,6 @@ Currently compatible with Credit Bureau:
 
 * Minimal Python `3.11.9`
 * Libraries listed in `requirements.txt`
-* A `db_config.json` file (for SQL credentials) in the following format:
-
-```json
-{
-    "server": "",
-    "database": "",
-    "username": "",
-    "password": "",
-    "driver": ""
-}
-```
 
 ---
 
@@ -50,7 +40,7 @@ Currently compatible with Credit Bureau:
 
 
 
-❌ : Meaning we're not using it anymore
+❌ : Meaning we're not using it anymore <br>
 ✅ : Meaning we're still using it although some field not exists
 ---
 
@@ -76,44 +66,45 @@ python3.11.9 -m venv .venv
 # activate the venv
 .venv\Scripts\activate
 
-# install the requirements
-pip install -r requirements.txt
+# install the package for latest version
+pip install git+https://github.com/rmreza-kbfmf/credit-bureau-parser.git
+
+# install the package for debugging
+pip install -e .
 ```
 
-2. Place `.XML` or `.JSON` files inside `dir/input/{typefile}/`.
+2. Place `.XML` or `.JSON` files inside `{root-base}/input/{bureau-name}/{output-format}/`.
 
-   * For example, if the desired file is xml then use: `dir/input/xml/`
-   * For example, if the desired file is json then use: `dir/input/json/`
+   * For example, if the root folder located in `./opt/airflow/resources` with bureau name `pefindo` and file type is `xml` then use: `./opt/airflow/resources/input/pefindo/xml/`
+   * For example, if the root folder located in `./opt/airflow/resources` with bureau name `clik` and file type is `json` then use: `./opt/airflow/resources/input/clik/json/`
+
+
 
 3. Run the parser using:
 
 ```bash
 # Example: parse JSON files and save output as CSV
-python main.py --data-type json --output-format csv
+python -m credit_bureau_parser.main --data-type json --output-format csv
 
 # Example: parse XML files and save output as Parquet
-python main.py --data-type xml --output-format parquet
+python -m credit_bureau_parser.main --data-type xml --output-format parquet
 ```
+python src\credit_bureau_parser\testing_compare_result.py baseline\output\pefindo\json resources\output\pefindo\json
 
 4. Arguments explanation:
 
 | Argument          | Description                               | Example                     |
 | ----------------- | ----------------------------------------- | --------------------------- |
 | `--data-type`     | Format of data to parse (`json` or `xml`) | `--data-type json`          |
-| `--folder-path`   | Path to the folder containing input files | `--folder-path dir/input/` |
+| `--root-base`   | Path to the folder containing input files | `--folder-path opt/airflow/` |
 | `--output-format` | Output file format (`csv` or `parquet`)   | `--output-format parquet`   |
+| `--bureau-name` | bureau name, default is `pefindo`   | `--bureau-name pefindo`   |
+| `--processor-set` | Processing all or certain file, default is all file   | `--processor-set default`   |
+| `--use-multiprocessing` | Argument to enable multiprocessing, not work in airflow, default is single processing   | `--use-multiprocessing`   |
+| `--use-tqdm` | Argument to enable tqdm, not work in airflow, default is using tqdm   | `--use-tqdm`   |
 
-however `--folder-path` can be null as the default value is `dir/input/`
 
 5. Output location: 
 
-Output files for each processor will be saved under the `dir/output/{typefile}` folder (e.g. `dir/output/json/CIP.csv`).
+Output files for each processor will be saved under the `{root-base}/output/{bureau-name}/{output-format}/` folder (e.g. `./opt/airflow/resources/output/pefindo/xml/`).
 If the output folder does not exist, it will be created automatically before saving.
-
-
-## Notes
-
-* ⚠️ The `.parquet` output is still experimental and currently slower, as it first generates `.csv` before converting to `.parquet`.
-* 🧩 Next Step : Create pipeline for formatting data and ingestion
-
----
