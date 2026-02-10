@@ -17,28 +17,28 @@ import pandas as pd
 from tqdm import tqdm
 
 class CIQDetailProcessor(BaseProcessor):
-    @safe_run(use_logger=False)    
+    @safe_run(use_logger=False)
     def process(self, output_format=None):
-        # Define sections and corresponding feature lists
         self.sections = [
             (self.feature_set.CIQ_DETAIL_ROOT, self.feature_set.CIQ_DETAIL)
-        ]    
+        ]
 
-        self.subsections = []    
+        self.subsections = []
 
-        sql_field, sql_values = set_field_value(self.filename)
         for section_key, fields in self.sections:
             data = get_nested_dict(self.root, section_key)
-            if data is None:
-                sql_field, sql_values = self._extract_fields(data, fields, sql_field, sql_values, none_data=True)
-                continue      
+            parent_list = data if data not in (None, [], {}) else [None]
 
-            for tempdata in data:     
-                sql_field, sql_values = self._extract_fields(tempdata, fields, sql_field, sql_values)
-                
-                # Recurse into sub-sections
+            for parent in parent_list:
+                sql_field, sql_values = set_field_value(self.filename)
+                sql_field, sql_values = self._extract_fields(
+                    parent, fields,
+                    sql_field, sql_values,
+                    none_data=(parent is None)
+                )
+
                 self._process_result(
-                    parent=tempdata,
+                    parent=parent if parent is not None else self.root,
                     inherited_fields=(sql_field, sql_values)
                 )
 
@@ -46,31 +46,31 @@ class CIQDetailProcessor(BaseProcessor):
         return self.sql_field_list, self.sql_values_list
 
 class CIQSummaryProcessor(BaseProcessor):
-    @safe_run(use_logger=False)    
+    @safe_run(use_logger=False)
     def process(self, output_format=None):
-        # Define sections and corresponding feature lists
         self.sections = [
-            (self.feature_set.CIQ_SUMMARY_ROOT, self.feature_set.CIQ_SUMMARY),
-        ]    
+            (self.feature_set.CIQ_SUMMARY_ROOT, self.feature_set.CIQ_SUMMARY)
+        ]
 
-        self.subsections = []    
+        self.subsections = []
 
         sql_field, sql_values = set_field_value(self.filename)
+
         for section_key, fields in self.sections:
-
             data = get_nested_dict(self.root, section_key)
-            if data is None: # If no data found, we fill the field with None. 
-                sql_field, sql_values = self._extract_fields(data, fields, sql_field, sql_values, none_data=True)
-                continue    
+            parent_list = data if data not in (None, [], {}) else [None]
 
-            for tempdata in data:    
-                sql_field, sql_values = self._extract_fields(tempdata, fields, sql_field, sql_values)
+            for parent in parent_list:
+                sql_field, sql_values = self._extract_fields(
+                    parent, fields,
+                    sql_field, sql_values,
+                    none_data=(parent is None)
+                )
 
-        # Recurse into sub-sections
         self._process_result(
             parent=self.root,
             inherited_fields=(sql_field, sql_values)
         )
 
         self.save_output(output_format=output_format)
-        return self.sql_field_list, self.sql_values_list 
+        return self.sql_field_list, self.sql_values_list

@@ -17,64 +17,59 @@ import pandas as pd
 from tqdm import tqdm
 
 class InquiriesSummaryProcessor(BaseProcessor):
-    @safe_run(use_logger=False)    
+    @safe_run(use_logger=False)
     def process(self, output_format=None):
-        # Define sections and corresponding feature lists
         self.sections = [
             (self.feature_set.INQUIRIES_SUMMARY_ROOT, self.feature_set.INQUIRIES_SUMMARY)
-        ]    
+        ]
 
-        self.subsections = []    
+        self.subsections = []
 
         for section_key, fields in self.sections:
             data = get_nested_dict(self.root, section_key)
-            if data is None:
-                continue            
+            parent_list = data if data not in (None, [], {}) else [None]
 
-            for tempdata in data:     
+            for parent in parent_list:
                 sql_field, sql_values = set_field_value(self.filename)
-                sql_field, sql_values = self._extract_fields(tempdata, fields, sql_field, sql_values)
-                
-                # Recurse into sub-sections
-                self._process_result(
-                    parent=tempdata,
-                    inherited_fields=(sql_field, sql_values)
+                sql_field, sql_values = self._extract_fields(
+                    parent, fields,
+                    sql_field, sql_values,
+                    none_data=(parent is None)
                 )
 
-        self.save_output(output_format=output_format)
-        return self.sql_field_list, self.sql_values_list               
-    
-class InquiriesProcessor(BaseProcessor):
-    @safe_run(use_logger=False)    
-    def process(self, output_format=None):
-        # Define sections and corresponding feature lists
-        self.sections = [
-            (self.feature_set.INQUIRIES_INQUIRYLIST_ROOT, self.feature_set.INQUIRIES)
-        ]    
-
-        self.subsections = []   
-
-        sql_field, sql_values = set_field_value(self.filename) 
-
-        for section_key, fields in self.sections:
-            data = get_nested_dict(self.root, section_key)      
-            if data is None:
-                sql_field, sql_values = self._extract_fields(data, fields, sql_field, sql_values, none_data=True)
                 self._process_result(
-                parent=self.root,
-                inherited_fields=(sql_field, sql_values)
-                )     
-                continue
-
-            for tempdata in data:                
-                sql_field, sql_values = set_field_value(self.filename)
-                sql_field, sql_values = self._extract_fields(tempdata, fields, sql_field, sql_values)
-
-                # Recurse into sub-sections
-                self._process_result(
-                    parent=tempdata,
+                    parent=parent if parent is not None else self.root,
                     inherited_fields=(sql_field, sql_values)
                 )
 
         self.save_output(output_format=output_format)
         return self.sql_field_list, self.sql_values_list              
+    
+class InquiriesProcessor(BaseProcessor):
+    @safe_run(use_logger=False)
+    def process(self, output_format=None):
+        self.sections = [
+            (self.feature_set.INQUIRIES_INQUIRYLIST_ROOT, self.feature_set.INQUIRIES)
+        ]
+
+        self.subsections = []
+
+        for section_key, fields in self.sections:
+            data = get_nested_dict(self.root, section_key)
+            parent_list = data if data not in (None, [], {}) else [None]
+
+            for parent in parent_list:
+                sql_field, sql_values = set_field_value(self.filename)
+                sql_field, sql_values = self._extract_fields(
+                    parent, fields,
+                    sql_field, sql_values,
+                    none_data=(parent is None)
+                )
+
+                self._process_result(
+                    parent=parent if parent is not None else self.root,
+                    inherited_fields=(sql_field, sql_values)
+                )
+
+        self.save_output(output_format=output_format)
+        return self.sql_field_list, self.sql_values_list             

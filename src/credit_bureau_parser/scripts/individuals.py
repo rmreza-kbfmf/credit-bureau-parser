@@ -17,33 +17,34 @@ import pandas as pd
 from tqdm import tqdm
 
 class IndividualProcessor(BaseProcessor):
-    @safe_run(use_logger=False)    
+    @safe_run(use_logger=False)
     def process(self, output_format=None):
-        # Define sections and corresponding feature lists
         self.sections = [
             (self.feature_set.INDIVIDUAL_CONTACT_ROOT, self.feature_set.INDIVIDUAL_CONTACT),
             (self.feature_set.INDIVIDUAL_GENERAL_ROOT, self.feature_set.INDIVIDUAL_GENERAL),
             (self.feature_set.INDIVIDUAL_IDENTIFICATION_ROOT, self.feature_set.INDIVIDUAL_IDENTIFICATION),
-            (self.feature_set.INDIVIDUAL_ADDRESS_ROOT, self.feature_set.INDIVIDUAL_ADDRESS)
-        ]    
+            (self.feature_set.INDIVIDUAL_ADDRESS_ROOT, self.feature_set.INDIVIDUAL_ADDRESS),
+        ]
 
-        self.subsections = []    
+        self.subsections = []
 
         sql_field, sql_values = set_field_value(self.filename)
+
         for section_key, fields in self.sections:
             data = get_nested_dict(self.root, section_key)
-            if data is None:
-                sql_field, sql_values = self._extract_fields(data, fields, sql_field, sql_values, none_data=True)
-                continue                 
+            parent_list = data if data not in (None, [], {}) else [None]
 
-            for tempdata in data:    
-                sql_field, sql_values = self._extract_fields(tempdata, fields, sql_field, sql_values)
+            for parent in parent_list:
+                sql_field, sql_values = self._extract_fields(
+                    parent, fields,
+                    sql_field, sql_values,
+                    none_data=(parent is None)
+                )
 
-        # Recurse into sub-sections
         self._process_result(
             parent=self.root,
             inherited_fields=(sql_field, sql_values)
         )
 
         self.save_output(output_format=output_format)
-        return self.sql_field_list, self.sql_values_list               
+        return self.sql_field_list, self.sql_values_list             

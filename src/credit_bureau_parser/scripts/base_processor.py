@@ -28,6 +28,7 @@ class BaseProcessor:
         self.filename = filename
         self.folder_path = folder_path
         self.foldername = f"{foldername}/{data_type.lower()}"
+        self.expected_fields = ["filename"]
         self.sql_field_list = []
         self.sql_values_list = []
         self.sections = []
@@ -51,9 +52,6 @@ class BaseProcessor:
         except Exception:
             self.table_name = 'Default'
 
-    # ------------------------------------------------------------------
-    # 🔑 ADDITIVE helper (no variable changes)
-    # ------------------------------------------------------------------
     def _with_optional_lock(self, lock_path, fn):
         """
         Use FileLock ONLY when multiprocessing is enabled.
@@ -65,9 +63,19 @@ class BaseProcessor:
         else:
             fn()
 
-    # ------------------------------------------------------------------
-    # EVERYTHING BELOW IS UNCHANGED
-    # ------------------------------------------------------------------
+    def _is_empty_subsection(self, data):
+        if data is None:
+            return True
+
+        if data == [] or data == {}:
+            return True
+
+        # 🔥 JSON-specific: dict with all None values
+        if isinstance(data, dict):
+            return all(v is None for v in data.values())
+
+        return False
+        
     def _extractor(self, field, record, sql_field, sql_values, none_data=False):
         if none_data:
             if field in self.feature_set.FIELD_ADDRESS:
@@ -119,10 +127,8 @@ class BaseProcessor:
             elif field in self.feature_set.FIELD_DATE:
                 value = is_object(field, record)
                 value = value[0:10]
-                sql_field, sql_values = get_field_value(value, field, sql_field, sql_values, field_int=[])
-
-
-
+                sql_field, sql_values = get_field_value(value, field, sql_field, sql_values, field_int=[]
+                )
 
             else:
                 value = is_object(field, record)
@@ -135,6 +141,19 @@ class BaseProcessor:
     def _rename_field(self, field, old_value, new_value):
         return field.replace(old_value, new_value)
 
+    def _emit_null_section_row(self, fields):
+        sql_field, sql_values = set_field_value(self.filename)
+        sql_field, sql_values = self._extract_fields(
+            record=None,
+            fields=fields,
+            sql_field=sql_field,
+            sql_values=sql_values,
+            none_data=True
+        )
+        self._process_result(
+            parent=self.root,
+            inherited_fields=(sql_field, sql_values)
+        )
 
     def _extract_fields(self, record, fields, sql_field, sql_values, none_data=False):
         if none_data:
@@ -154,6 +173,10 @@ class BaseProcessor:
                     )
 
         sql_field = self._rename_field(sql_field, "IdScoreId", "PefindoId")
+
+        # Track expected header
+        if sql_field and not self.expected_fields:
+            self.expected_fields = list(sql_field)        
         return sql_field, sql_values
 
     def _process_result(self, parent, inherited_fields):
@@ -168,8 +191,22 @@ class BaseProcessor:
 
         for sub_section_key, sub_fields in self.subsections:
             sub_data = get_nested_dict(parent, sub_section_key)
-            if sub_data is None:
+            # ✅ FIX: subsection missing → still emit ONE row
+            if self._is_empty_subsection(sub_data):
+                sub_sql_field, sub_sql_values = self._extract_fields(
+                    record=None,
+                    fields=sub_fields,
+                    sql_field=inherited_fields[0],
+                    sql_values=inherited_fields[1],
+                    none_data=True
+                )
+                get_sql_text(self.table_name, sub_sql_field, sub_sql_values)
+                self.sql_field_list, self.sql_values_list = get_sql_field_values_list(
+                    sub_sql_field, sub_sql_values,
+                    self.sql_field_list, self.sql_values_list
+                )
                 continue
+
 
             for sub_tempdata in sub_data:
                 sub_sql_field, sub_sql_values = inherited_fields
@@ -200,7 +237,13 @@ class BaseProcessor:
             return v
 
         try:
+            # If no rows were produced, create a dummy row
             if not self.sql_field_list:
+                if not self.expected_fields:
+                    return  # no schema info at all
+
+                self.sql_field_list = [self.expected_fields]
+                self.sql_values_list = [[None] * len(self.expected_fields)]
                 return
 
             raw_header = self.sql_field_list[-1]
