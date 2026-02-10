@@ -17,35 +17,28 @@ import pandas as pd
 from tqdm import tqdm
     
 class CurrentRelationsContractProcessor(BaseProcessor):
-    @safe_run(use_logger=False)    
+    @safe_run(use_logger=False)
     def process(self, output_format=None):
-        # Define sections and corresponding feature lists
         self.sections = [
-            (self.feature_set.CURRENT_RELATIONS_CONTRACT_RELATION_ROOT, self.feature_set.CONTRACTRELATIONS),
-        ]    
+            (self.feature_set.CURRENT_RELATIONS_CONTRACT_RELATION_ROOT, self.feature_set.CONTRACTRELATIONS)
+        ]
 
-        self.subsections = []    
-
-        sql_field, sql_values = set_field_value(self.filename)
+        self.subsections = []
 
         for section_key, fields in self.sections:
             data = get_nested_dict(self.root, section_key)
+            parent_list = data if data not in (None, [], {}) else [None]
 
-            if data is None:
-                sql_field, sql_values = self._extract_fields(data, fields, sql_field, sql_values, none_data=True)
-                self._process_result(
-                parent=self.root,
-                inherited_fields=(sql_field, sql_values)
-                )
-                continue
-
-            for tempdata in data:                
+            for parent in parent_list:
                 sql_field, sql_values = set_field_value(self.filename)
-                sql_field, sql_values = self._extract_fields(tempdata, fields, sql_field, sql_values)
+                sql_field, sql_values = self._extract_fields(
+                    parent, fields,
+                    sql_field, sql_values,
+                    none_data=(parent is None)
+                )
 
-                # Recurse into sub-sections
                 self._process_result(
-                    parent=tempdata,
+                    parent=parent if parent is not None else self.root,
                     inherited_fields=(sql_field, sql_values)
                 )
 
@@ -53,36 +46,28 @@ class CurrentRelationsContractProcessor(BaseProcessor):
         return self.sql_field_list, self.sql_values_list
     
 class CurrentRelationsRelatedPartyProcessor(BaseProcessor):
-    @safe_run(use_logger=False)    
+    @safe_run(use_logger=False)
     def process(self, output_format=None):
-        # Define sections and corresponding feature lists
         self.sections = [
-            (self.feature_set.CURRENT_RELATIONS_RELATED_PARTY_ROOT, self.feature_set.RELATEDPARTY),
-        ]    
+            (self.feature_set.CURRENT_RELATIONS_RELATED_PARTY_ROOT, self.feature_set.RELATEDPARTY)
+        ]
 
         self.subsections = []
 
-        sql_field, sql_values = set_field_value(self.filename)
-
         for section_key, fields in self.sections:
             data = get_nested_dict(self.root, section_key)
+            parent_list = data if data not in (None, [], {}) else [None]
 
-            if data is None:
-                sql_field, sql_values = self._extract_fields(data, fields, sql_field, sql_values, none_data=True)
-                
-                self._process_result(
-                parent=self.root,
-                inherited_fields=(sql_field, sql_values)
-                )
-                continue
-
-            for tempdata in data:                
+            for parent in parent_list:
                 sql_field, sql_values = set_field_value(self.filename)
-                sql_field, sql_values = self._extract_fields(tempdata, fields, sql_field, sql_values)
+                sql_field, sql_values = self._extract_fields(
+                    parent, fields,
+                    sql_field, sql_values,
+                    none_data=(parent is None)
+                )
 
-                # Recurse into sub-sections
                 self._process_result(
-                    parent=tempdata,
+                    parent=parent if parent is not None else self.root,
                     inherited_fields=(sql_field, sql_values)
                 )
 

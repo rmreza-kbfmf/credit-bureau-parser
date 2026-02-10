@@ -19,40 +19,42 @@ from tqdm import tqdm
 class ParametersProcessor(BaseProcessor):
     @safe_run(use_logger=False)
     def process(self, output_format=None):
-        # Define sections and corresponding feature lists
         self.sections = [
             (self.feature_set.INDIVIDUAL_IDENTIFICATION_ROOT, self.feature_set.INDIVIDUAL_PEFINDO_ID),
-            (self.feature_set.PARAMETERS_ROOT, self.feature_set.PARAMETER)
-        ]    
+            (self.feature_set.PARAMETERS_ROOT, self.feature_set.PARAMETER),
+        ]
 
-        self.subsections = []    
+        self.subsections = []
 
-        base_sql_field = ""
-        base_sql_values = ""
-        set_field_value_flag = False
-        
+        base_sql_field = None
+        base_sql_values = None
+
         for section_key, fields in self.sections:
             data = get_nested_dict(self.root, section_key)
-            if data is None:
-                continue             
+            parent_list = data if data not in (None, [], {}) else [None]
 
-            # to attach pefindoid
             if section_key == self.feature_set.INDIVIDUAL_IDENTIFICATION_ROOT:
+                parent = parent_list[0]
                 base_sql_field, base_sql_values = set_field_value(self.filename)
-                base_sql_field, base_sql_values = self._extract_fields(data, fields, base_sql_field, base_sql_values)
-                set_field_value_flag = True
+                base_sql_field, base_sql_values = self._extract_fields(
+                    parent, fields,
+                    base_sql_field, base_sql_values,
+                    none_data=(parent is None)
+                )
                 continue
-            elif set_field_value_flag is False:
-                base_sql_field, base_sql_values = set_field_value(self.filename)
 
-            for tempdata in data:    
-                sql_field, sql_values = self._extract_fields(tempdata, fields, base_sql_field, base_sql_values)
+            for parent in parent_list:
+                sql_field, sql_values = base_sql_field, base_sql_values
+                sql_field, sql_values = self._extract_fields(
+                    parent, fields,
+                    sql_field, sql_values,
+                    none_data=(parent is None)
+                )
 
-                # Recurse into sub-sections
                 self._process_result(
-                    parent=tempdata,
+                    parent=parent if parent is not None else self.root,
                     inherited_fields=(sql_field, sql_values)
                 )
 
-        self.save_output(output_format=output_format)  
+        self.save_output(output_format=output_format)
         return self.sql_field_list, self.sql_values_list

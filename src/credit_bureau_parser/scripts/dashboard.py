@@ -17,9 +17,8 @@ import pandas as pd
 from tqdm import tqdm
 
 class DashboardProcessor(BaseProcessor):
-    @safe_run(use_logger=False)    
+    @safe_run(use_logger=False)
     def process(self, output_format=None):
-        # Define sections and corresponding feature lists
         self.sections = [
             (self.feature_set.DASHBOARD_CIQ_ROOT, self.feature_set.DASHBOARD_CIQ),
             (self.feature_set.DASHBOARD_COLLATERALS_ROOT, self.feature_set.DASHBOARD_COLLATERALS),
@@ -31,19 +30,22 @@ class DashboardProcessor(BaseProcessor):
             (self.feature_set.DASHBOARD_RELATIONS_ROOT, self.feature_set.DASHBOARD_RELATIONS),
             (self.feature_set.DASHBOARD_SECURITIES_ROOT, self.feature_set.DASHBOARD_SECURITIES),
         ]
-        self.subsections = []    
+
+        self.subsections = []
 
         sql_field, sql_values = set_field_value(self.filename)
+
         for section_key, fields in self.sections:
             data = get_nested_dict(self.root, section_key)
-            if data is None:
-                sql_field, sql_values = self._extract_fields(data, fields, sql_field, sql_values, none_data=True)
-                continue                 
+            parent_list = data if data not in (None, [], {}) else [None]
 
-            for tempdata in data:    
-                sql_field, sql_values = self._extract_fields(tempdata, fields, sql_field, sql_values)
+            for parent in parent_list:
+                sql_field, sql_values = self._extract_fields(
+                    parent, fields,
+                    sql_field, sql_values,
+                    none_data=(parent is None)
+                )
 
-        # Recurse into sub-sections
         self._process_result(
             parent=self.root,
             inherited_fields=(sql_field, sql_values)

@@ -86,11 +86,16 @@ class FileProcessingPipeline:
         output_format: str,
         bureau_name: str = "pefindo",
         processor_set: str = "default",
+        use_multiprocessing: bool = False,
+        use_tqdm: bool = False
+
     ):
         self.data_type = data_type
         self.output_format = output_format
         self.bureau_name = bureau_name
         self.processor_set = processor_set
+        self.use_multiprocessing = use_multiprocessing
+        self.use_tqdm = use_tqdm
 
         self.feature_set = get_feature_set(self.bureau_name, self.data_type)
         self.processors = get_processors(self.processor_set)
@@ -120,8 +125,16 @@ class FileProcessingPipeline:
             feature_set=self.feature_set,
         )
 
-        success = 0
-        failed = 0
+        if self.use_multiprocessing:
+            self._run_parallel(worker)
+        else:
+            self._run_sequential(worker,self.use_tqdm)
+
+    # -------------------------------
+    # 🧵 Parallel (LOCAL ONLY)
+    # -------------------------------
+    def _run_parallel(self, worker):
+        success, failed = 0, 0
         failed_files = []
 
         with ProcessPoolExecutor() as executor:
@@ -139,7 +152,6 @@ class FileProcessingPipeline:
 
                 try:
                     result = future.result()
-
                     if result["status"] == "success":
                         success += 1
                     else:
@@ -147,12 +159,49 @@ class FileProcessingPipeline:
                         failed_files.append(
                             (filename, result.get("error", "Unknown error"))
                         )
-
                 except Exception as e:
                     failed += 1
                     failed_files.append((filename, str(e)))
 
-        # ---- Summary ----
+        self._print_summary(success, failed, failed_files)
+
+    # -------------------------------
+    # 🧠 Sequential (AIRFLOW SAFE)
+    # -------------------------------
+    def _run_sequential(self, worker, use_tqdm: bool = False):
+        success, failed = 0, 0
+        failed_files = []
+
+        iterable = self.file_list
+
+        if use_tqdm:
+            iterable = tqdm(
+                self.file_list,
+                desc=f"Processing {self.data_type.upper()} files",
+                unit="file",
+            )        
+
+        for filename in iterable:
+            try:
+                result = worker(str(filename))
+                if result["status"] == "success":
+                    success += 1
+                else:
+                    failed += 1
+                    failed_files.append(
+                        (filename, result.get("error", "Unknown error"))
+                    )
+            except Exception as e:
+                failed += 1
+                failed_files.append((str(filename), str(e)))
+
+        self._print_summary(success, failed, failed_files)
+
+    # -------------------------------
+    # 📊 Summary
+    # -------------------------------
+    @staticmethod
+    def _print_summary(success, failed, failed_files):
         print(f"\n✅ Success: {success}")
         print(f"❌ Failed: {failed}")
 
