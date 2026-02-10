@@ -51,6 +51,14 @@ def parse_args():
         help="Enable multiprocessing (default: disabled; recommended OFF for Airflow)",
     )
 
+    # 🔥 multiprocessing toggle
+    parser.add_argument(
+        "--use-tqdm",
+        action="store_true",
+        default=False,
+        help="Enable tqdm for monitoring process (default: disabled; recommended OFF for Airflow)",
+    )
+
     # 🔑 AIRFLOW-SAFE
     args, _ = parser.parse_known_args()
 

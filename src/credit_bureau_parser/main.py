@@ -13,7 +13,8 @@ def run(
     processor_set=None,
     bureau_name=None,
     root_base=None,
-    use_multiprocessing=None
+    use_multiprocessing=None,
+    use_tqdm=False
 ):
     """
     Unified entry point for:
@@ -27,7 +28,8 @@ def run(
     output_format = output_format or args.output_format
     processor_set = processor_set or args.processor_set
     bureau_name = bureau_name or args.bureau_name
-    root_base = root_base or args.root_base    
+    root_base = root_base or args.root_base   
+    use_tqdm = use_tqdm or args.use_tqdm 
 
     # 🔥 multiprocessing resolution (explicit > CLI > default)
     use_multiprocessing = (
@@ -46,7 +48,8 @@ def run(
             output_format=output_format,
             bureau_name=bureau_name,
             processor_set=processor_set,
-            use_multiprocessing=use_multiprocessing
+            use_multiprocessing=use_multiprocessing,
+            use_tqdm=use_tqdm
         )
 
         pipeline.run()

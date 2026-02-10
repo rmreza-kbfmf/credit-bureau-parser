@@ -87,12 +87,15 @@ class FileProcessingPipeline:
         bureau_name: str = "pefindo",
         processor_set: str = "default",
         use_multiprocessing: bool = False,
+        use_tqdm: bool = False
+
     ):
         self.data_type = data_type
         self.output_format = output_format
         self.bureau_name = bureau_name
         self.processor_set = processor_set
         self.use_multiprocessing = use_multiprocessing
+        self.use_tqdm = use_tqdm
 
         self.feature_set = get_feature_set(self.bureau_name, self.data_type)
         self.processors = get_processors(self.processor_set)
@@ -125,7 +128,7 @@ class FileProcessingPipeline:
         if self.use_multiprocessing:
             self._run_parallel(worker)
         else:
-            self._run_sequential(worker)
+            self._run_sequential(worker,self.use_tqdm)
 
     # -------------------------------
     # 🧵 Parallel (LOCAL ONLY)
@@ -165,11 +168,20 @@ class FileProcessingPipeline:
     # -------------------------------
     # 🧠 Sequential (AIRFLOW SAFE)
     # -------------------------------
-    def _run_sequential(self, worker):
+    def _run_sequential(self, worker, use_tqdm: bool = False):
         success, failed = 0, 0
         failed_files = []
 
-        for filename in self.file_list:
+        iterable = self.file_list
+
+        if use_tqdm:
+            iterable = tqdm(
+                self.file_list,
+                desc=f"Processing {self.data_type.upper()} files",
+                unit="file",
+            )        
+
+        for filename in iterable:
             try:
                 result = worker(str(filename))
                 if result["status"] == "success":
