@@ -635,7 +635,7 @@ class PefindoFeatures():
                             "NumberOfPastInvolvements",
                             "TotalAmountOfActiveInvolvements"]
 
-    CONTRACT_OVERVIEW = ["ContractStatus",
+    CONTRACT_OVERVIEW = ["ContractCode","Creditor","ContractStatus",
                          "OutstandingAmount",
                          "PastDueAmount",
                          "PastDueDays",
