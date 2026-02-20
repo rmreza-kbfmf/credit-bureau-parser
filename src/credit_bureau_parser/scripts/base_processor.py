@@ -138,6 +138,22 @@ class BaseProcessor:
 
             return sql_field, sql_values
 
+    def _get_singleton(self, data):
+        """
+        Ensure singleton behavior.
+
+        - None / [] / {} → None
+        - If list → return first element
+        - Otherwise → return as-is
+        """
+        if data in (None, [], {}):
+            return None
+
+        if isinstance(data, list):
+            return data[0] if data else None
+
+        return data
+
     def _rename_field(self, field, old_value, new_value):
         return field.replace(old_value, new_value)
 
@@ -222,25 +238,42 @@ class BaseProcessor:
                     compression='snappy', parquet_engine="pyarrow"):
 
         def normalize_value(v):
+            """
+            - None / "NULL" → None
+            - Remove trailing .0
+            - Preserve leading zeros
+            - Do NOT auto-cast strings to int
+            """
+
             if v is None or v == "NULL":
                 return None
+
+            # Case 1️⃣: float like 10500.0
+            if isinstance(v, float):
+                if v.is_integer():
+                    return int(v)
+                return v
+
+            # Case 2️⃣: string like "10500.0"
             if isinstance(v, str):
-                try:
-                    if "." in v:
+                if v.endswith(".0"):
+                    # ensure it's numeric like 10500.0 not something else
+                    try:
                         f = float(v)
                         if f.is_integer():
-                            return int(f)
-                        return f
-                    return int(v)
-                except ValueError:
-                    return v
+                            return str(int(f))
+                    except ValueError:
+                        pass
+
+                return v  # keep original string untouched
+
             return v
 
         try:
             # If no rows were produced, create a dummy row
             if not self.sql_field_list:
                 if not self.expected_fields:
-                    return  # no schema info at all
+                    return
 
                 self.sql_field_list = [self.expected_fields]
                 self.sql_values_list = [[None] * len(self.expected_fields)]
@@ -254,7 +287,7 @@ class BaseProcessor:
             for i, row in enumerate(self.sql_values_list, start=1):
                 row_values = [normalize_value(v) for v in row]
                 if auto_increment:
-                    row_values = [i] + list(row)
+                    row_values = [i] + row_values
                 rows.append(row_values)
 
             output_folder = self.folder_path
@@ -268,13 +301,15 @@ class BaseProcessor:
                 file_exists = os.path.exists(output_filename)
                 header_with_created = header_csv + ",CreatedAt" if header_csv else ""
 
-                with open(output_filename, "a", encoding="utf-8") as f:
+                with open(output_filename, "a", encoding="utf-8", newline="") as f:
+                    writer = csv.writer(f)
+
                     if not file_exists:
-                        f.write(header_with_created + "\n")
+                        writer.writerow(header_with_created.split(","))
+
                     for row in rows:
-                        formatted = format_row_with_timestamp(row, created_at)
-                        if formatted:
-                            f.write(formatted + "\n")
+                        # Append CreatedAt safely
+                        writer.writerow(row + [created_at])
 
             self._with_optional_lock(lock_path, write_csv)
 
@@ -283,7 +318,7 @@ class BaseProcessor:
                 parquet_lock = f"{output_parquet_path}.lock"
 
                 def write_parquet():
-                    df = pd.read_csv(output_filename, low_memory=False)
+                    df = pd.read_csv(output_filename, dtype=str)  # 🔒 prevent auto type inference
                     df.to_parquet(
                         output_parquet_path,
                         index=False,
@@ -294,5 +329,6 @@ class BaseProcessor:
                     gc.collect()
 
                 self._with_optional_lock(parquet_lock, write_parquet)
+
         except Exception as e:
             print(f"[{self.processor_name}] ❌ ERROR saving output: {e}")
