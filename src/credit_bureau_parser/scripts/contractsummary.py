@@ -20,10 +20,14 @@ class ContractSummaryDebtorProcessor(BaseProcessor):
     @safe_run(use_logger=False)
     def process(self, output_format=None):
         self.sections = [
+            (self.feature_set.CONTRACTS_ROOT, self.feature_set.CONTRACT_CORE_KEY),
             (self.feature_set.CONTRACT_SUMMARY_DEBTOR_ROOT, self.feature_set.DEBTOR)
         ]
 
         self.subsections = []
+
+        base_sql_field = None
+        base_sql_values = None        
 
         sql_field, sql_values = set_field_value(self.filename)
 
@@ -31,7 +35,18 @@ class ContractSummaryDebtorProcessor(BaseProcessor):
             data = get_nested_dict(self.root, section_key)
             parent_list = data if data not in (None, [], {}) else [None]
 
+            if section_key == self.feature_set.CONTRACTS_ROOT:
+                parent = parent_list
+                base_sql_field, base_sql_values = set_field_value(self.filename)
+                base_sql_field, base_sql_values = self._extract_fields(
+                    parent, fields,
+                    base_sql_field, base_sql_values,
+                    none_data=(parent is None)
+                )
+                continue                    
+                
             for parent in parent_list:
+                sql_field, sql_values = base_sql_field, base_sql_values
                 sql_field, sql_values = self._extract_fields(
                     parent, fields,
                     sql_field, sql_values,
@@ -50,10 +65,14 @@ class ContractSummaryGuarantorProcessor(BaseProcessor):
     @safe_run(use_logger=False)
     def process(self, output_format=None):
         self.sections = [
+            (self.feature_set.CONTRACTS_ROOT, self.feature_set.CONTRACT_CORE_KEY),
             (self.feature_set.CONTRACT_SUMMARY_GUARANTOR_ROOT, self.feature_set.GUARANTOR)
         ]
 
         self.subsections = []
+
+        base_sql_field = None
+        base_sql_values = None        
 
         sql_field, sql_values = set_field_value(self.filename)
 
@@ -61,12 +80,23 @@ class ContractSummaryGuarantorProcessor(BaseProcessor):
             data = get_nested_dict(self.root, section_key)
             parent_list = data if data not in (None, [], {}) else [None]
 
+            if section_key == self.feature_set.CONTRACTS_ROOT:
+                parent = parent_list
+                base_sql_field, base_sql_values = set_field_value(self.filename)
+                base_sql_field, base_sql_values = self._extract_fields(
+                    parent, fields,
+                    base_sql_field, base_sql_values,
+                    none_data=(parent is None)
+                )
+                continue         
+
             for parent in parent_list:
+                sql_field, sql_values = base_sql_field, base_sql_values
                 sql_field, sql_values = self._extract_fields(
                     parent, fields,
                     sql_field, sql_values,
                     none_data=(parent is None)
-                )
+                ) 
 
         self._process_result(
             parent=self.root,
@@ -80,23 +110,38 @@ class ContractSummaryOverallProcessor(BaseProcessor):
     @safe_run(use_logger=False)
     def process(self, output_format=None):
         self.sections = [
+            (self.feature_set.CONTRACTS_ROOT, self.feature_set.CONTRACT_CORE_KEY),
             (self.feature_set.CONTRACT_SUMMARY_OVERALL_ROOT, self.feature_set.CONTRACT_SUMMARY_OVERALL)
         ]
 
         self.subsections = []
 
-        sql_field, sql_values = set_field_value(self.filename)
+        base_sql_field = None
+        base_sql_values = None        
+
+        # sql_field, sql_values = set_field_value(self.filename)
 
         for section_key, fields in self.sections:
             data = get_nested_dict(self.root, section_key)
             parent_list = data if data not in (None, [], {}) else [None]
 
+            if section_key == self.feature_set.CONTRACTS_ROOT:
+                parent = parent_list
+                base_sql_field, base_sql_values = set_field_value(self.filename)
+                base_sql_field, base_sql_values = self._extract_fields(
+                    parent, fields,
+                    base_sql_field, base_sql_values,
+                    none_data=(parent is None)
+                )
+                continue
+
             for parent in parent_list:
+                sql_field, sql_values = base_sql_field, base_sql_values
                 sql_field, sql_values = self._extract_fields(
                     parent, fields,
                     sql_field, sql_values,
                     none_data=(parent is None)
-                )
+                )                
 
         self._process_result(
             parent=self.root,
@@ -110,17 +155,30 @@ class ContractSummaryPaymentCalendarProcessor(BaseProcessor):
     @safe_run(use_logger=False)
     def process(self, output_format=None):
         self.sections = [
+            (self.feature_set.CONTRACTS_ROOT, self.feature_set.CONTRACT_CORE_KEY),
             (self.feature_set.CONTRACT_SUMMARY_PAYMENT_CALENDAR_ROOT, self.feature_set.PAYMENTCALENDAR)
         ]
 
-        self.subsections = []
+        base_sql_field = None
+        base_sql_values = None        
 
         for section_key, fields in self.sections:
             data = get_nested_dict(self.root, section_key)
             parent_list = data if data not in (None, [], {}) else [None]
 
+            # --- identification section (singleton, no row emission)
+            if section_key == self.feature_set.CONTRACTS_ROOT:
+                parent = parent_list
+                base_sql_field, base_sql_values = set_field_value(self.filename)
+                base_sql_field, base_sql_values = self._extract_fields(
+                    parent, fields,
+                    base_sql_field, base_sql_values,
+                    none_data=(parent is None)
+                )
+                continue
+
             for parent in parent_list:
-                sql_field, sql_values = set_field_value(self.filename)
+                sql_field, sql_values = base_sql_field, base_sql_values
                 sql_field, sql_values = self._extract_fields(
                     parent, fields,
                     sql_field, sql_values,

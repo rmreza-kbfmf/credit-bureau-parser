@@ -27,7 +27,7 @@ class InquiriesSummaryProcessor(BaseProcessor):
 
         for section_key, fields in self.sections:
             data = get_nested_dict(self.root, section_key)
-            parent_list = data if data not in (None, [], {}) else [None]
+            parent_list = [self._get_singleton(data)]
 
             for parent in parent_list:
                 sql_field, sql_values = set_field_value(self.filename)

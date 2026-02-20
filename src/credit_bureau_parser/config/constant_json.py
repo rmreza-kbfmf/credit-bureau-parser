@@ -339,7 +339,7 @@ class PefindoFeatures():
                             "NumberOfPastInvolvements",
                             "TotalAmountOfActiveInvolvements"]
     
-    CONTRACT_OVERVIEW = ["id_kondisi",
+    CONTRACT_OVERVIEW = ["nomor_rekening_fasilitas","id_pelapor","id_kondisi",
                         "saldo_terutang",
                         "nominal_tunggakan",
                         "jumlah_hari_tunggakan",
